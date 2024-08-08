@@ -4,8 +4,6 @@
 require "utils/curl"
 
 # Repology API client.
-#
-# @api private
 module Repology
   HOMEBREW_CORE = "homebrew"
   HOMEBREW_CASK = "homebrew_casks"
@@ -38,6 +36,7 @@ module Repology
     data = JSON.parse(output)
     { name => data }
   rescue => e
+    require "utils/backtrace"
     error_output = [errors, "#{e.class}: #{e}", Utils::Backtrace.clean(e)].compact
     if Homebrew::EnvConfig.developer?
       $stderr.puts(*error_output)

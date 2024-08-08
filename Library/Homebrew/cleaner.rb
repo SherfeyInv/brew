@@ -25,27 +25,28 @@ class Cleaner
   def clean
     ObserverPathnameExtension.reset_counts!
 
-    # Many formulae include 'lib/charset.alias', but it is not strictly needed
-    # and will conflict if more than one formula provides it
+    # Many formulae include `lib/charset.alias`, but it is not strictly needed
+    # and will conflict if more than one formula provides it.
     observe_file_removal @formula.lib/"charset.alias"
 
     [@formula.bin, @formula.sbin, @formula.lib].each { |dir| clean_dir(dir) if dir.exist? }
 
-    # Get rid of any info 'dir' files, so they don't conflict at the link stage
+    # Get rid of any info `dir` files, so they don't conflict at the link stage.
     #
-    # The 'dir' files come in at least 3 locations:
+    # The `dir` files come in at least 3 locations:
     #
-    # 1. 'info/dir'
-    # 2. 'info/#{name}/dir'
-    # 3. 'info/#{arch}/dir'
+    # 1. `info/dir`
+    # 2. `info/#{name}/dir`
+    # 3. `info/#{arch}/dir`
     #
-    # Of these 3 only 'info/#{name}/dir' is safe to keep since the rest will
+    # Of these 3 only `info/#{name}/dir` is safe to keep since the rest will
     # conflict with other formulae because they use a shared location.
     #
-    # See [cleaner: recursively delete info `dir`s by gromgit · Pull Request
-    # #11597][1], [emacs 28.1 bottle does not contain `dir` file · Issue
-    # #100190][2], and [Keep `info/#{f.name}/dir` files in cleaner by
-    # timvisher][3] for more info.
+    # See
+    # [cleaner: recursively delete info `dir`s][1],
+    # [emacs 28.1 bottle does not contain `dir` file][2] and
+    # [Keep `info/#{f.name}/dir` files in cleaner][3]
+    # for more info.
     #
     # [1]: https://github.com/Homebrew/brew/pull/11597
     # [2]: https://github.com/Homebrew/homebrew-core/issues/100190
@@ -114,15 +115,15 @@ class Cleaner
   # created as part of installing any Perl module.
   PERL_BASENAMES = Set.new(%w[perllocal.pod .packlist]).freeze
 
-  # Clean a top-level (bin, sbin, lib) directory, recursively, by fixing file
+  # Clean a top-level (`bin`, `sbin`, `lib`) directory, recursively, by fixing file
   # permissions and removing .la files, unless the files (or parent
   # directories) are protected by skip_clean.
   #
-  # bin and sbin should not have any subdirectories; if either do that is
-  # caught as an audit warning
+  # `bin` and `sbin` should not have any subdirectories; if either do that is
+  # caught as an audit warning.
   #
-  # lib may have a large directory tree (see Erlang for instance), and
-  # clean_dir applies cleaning rules to the entire tree
+  # `lib` may have a large directory tree (see Erlang for instance) and
+  # clean_dir applies cleaning rules to the entire tree.
   sig { params(directory: Pathname).void }
   def clean_dir(directory)
     directory.find do |path|
@@ -137,7 +138,7 @@ class Cleaner
       elsif path.symlink?
         # Skip it.
       else
-        # Set permissions for executables and non-executables
+        # Set permissions for executables and non-executables.
         perms = if executable_path?(path)
           0555
         else
@@ -154,8 +155,17 @@ class Cleaner
 
   sig { void }
   def rewrite_shebangs
+    require "language/node"
     require "language/perl"
     require "utils/shebang"
+
+    rewrites = [Language::Node::Shebang.method(:detected_node_shebang),
+                Language::Perl::Shebang.method(:detected_perl_shebang)].filter_map do |detector|
+      detector.call(@formula)
+    rescue ShebangDetectionError
+      nil
+    end
+    return if rewrites.empty?
 
     basepath = @formula.prefix.realpath
     basepath.find do |path|
@@ -163,11 +173,7 @@ class Cleaner
 
       next if path.directory? || path.symlink?
 
-      begin
-        Utils::Shebang.rewrite_shebang Language::Perl::Shebang.detected_perl_shebang(@formula), path
-      rescue ShebangDetectionError
-        break
-      end
+      rewrites.each { |rw| Utils::Shebang.rewrite_shebang rw, path }
     end
   end
 

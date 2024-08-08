@@ -7,8 +7,6 @@ module RuboCop
   module Cop
     module FormulaAudit
       # This cop audits the service block.
-      #
-      # @api private
       class Service < FormulaCop
         extend AutoCorrector
 
@@ -24,15 +22,16 @@ module RuboCop
         # At least one of these methods must be defined in a service block.
         REQUIRED_METHOD_CALLS = [:run, :name].freeze
 
-        def audit_formula(_node, _class_node, _parent_class_node, body_node)
-          service_node = find_block(body_node, :service)
+        sig { override.params(formula_nodes: FormulaNodes).void }
+        def audit_formula(formula_nodes)
+          service_node = find_block(formula_nodes.body_node, :service)
           return if service_node.blank?
 
           method_calls = service_node.each_descendant(:send).group_by(&:method_name)
           method_calls.delete(:service)
 
           # NOTE: Solving the first problem here might solve the second one too
-          # so we don't show both of them at the same time.
+          #       so we don't show both of them at the same time.
           if !method_calls.keys.intersect?(REQUIRED_METHOD_CALLS)
             offending_node(service_node)
             problem "Service blocks require `run` or `name` to be defined."

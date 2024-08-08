@@ -87,8 +87,7 @@ class SoftwareSpec
     resources.each_value do |r|
       r.owner = self
       next if r.version
-
-      raise "#{full_name}: version missing for \"#{r.name}\" resource!" if version.nil?
+      next if version.nil?
 
       r.version(version.head? ? Version.new("HEAD") : version.dup)
     end
@@ -123,6 +122,10 @@ class SoftwareSpec
     resources.key?(name)
   end
 
+  sig {
+    params(name: String, klass: T.class_of(Resource), block: T.nilable(T.proc.bind(Resource).void))
+      .returns(T.nilable(Resource))
+  }
   def resource(name, klass = Resource, &block)
     if block
       raise DuplicateResourceError, name if resource_defined?(name)
@@ -132,13 +135,14 @@ class SoftwareSpec
 
       resources[name] = res
       dependency_collector.add(res)
+      res
     else
       resources.fetch(name) { raise ResourceMissingError.new(owner, name) }
     end
   end
 
   def go_resource(name, &block)
-    # odeprecated "SoftwareSpec#go_resource", "Go modules"
+    odeprecated "`SoftwareSpec#go_resource`", "Go modules"
     resource name, Resource::Go, &block
   end
 
@@ -205,18 +209,6 @@ class SoftwareSpec
     end
 
     depends_on UsesFromMacOSDependency.new(dep, tags, bounds:)
-  end
-
-  # @deprecated
-  def uses_from_macos_elements
-    # TODO: Remember to remove the delegate from `Formula`.
-    odisabled "#uses_from_macos_elements", "#declared_deps"
-  end
-
-  # @deprecated
-  def uses_from_macos_names
-    # TODO: Remember to remove the delegate from `Formula`.
-    odisabled "#uses_from_macos_names", "#declared_deps"
   end
 
   def deps
@@ -314,10 +306,12 @@ class Bottle
     end
 
     sig { returns(String) }
-    def to_s
+    def to_str
       "#{name}--#{version}#{extname}"
     end
-    alias to_str to_s
+
+    sig { returns(String) }
+    def to_s = to_str
 
     sig { returns(String) }
     def json
@@ -397,14 +391,7 @@ class Bottle
   def fetch_tab
     return if github_packages_manifest_resource.blank?
 
-    # a checksum is used later identifying the correct tab but we do not have the checksum for the manifest/tab
-    github_packages_manifest_resource.fetch(verify_download_integrity: false)
-
-    begin
-      github_packages_manifest_resource_tab(github_packages_manifest_resource)
-    rescue RuntimeError => e
-      raise DownloadError.new(github_packages_manifest_resource, e)
-    end
+    github_packages_manifest_resource.fetch
   rescue DownloadError
     raise unless fallback_on_error
 
@@ -420,51 +407,21 @@ class Bottle
   def tab_attributes
     return {} unless github_packages_manifest_resource&.downloaded?
 
-    github_packages_manifest_resource_tab(github_packages_manifest_resource)
+    github_packages_manifest_resource.tab
+  end
+
+  sig { returns(Filename) }
+  def filename
+    Filename.create(resource.owner, @tag, @spec.rebuild)
   end
 
   private
-
-  def github_packages_manifest_resource_tab(github_packages_manifest_resource)
-    manifest_json = github_packages_manifest_resource.cached_download.read
-
-    json = begin
-      JSON.parse(manifest_json)
-    rescue JSON::ParserError
-      raise "The downloaded GitHub Packages manifest was corrupted or modified (it is not valid JSON): " \
-            "\n#{github_packages_manifest_resource.cached_download}"
-    end
-
-    manifests = json["manifests"]
-    raise ArgumentError, "Missing 'manifests' section." if manifests.blank?
-
-    manifests_annotations = manifests.filter_map { |m| m["annotations"] }
-    raise ArgumentError, "Missing 'annotations' section." if manifests_annotations.blank?
-
-    bottle_digest = @resource.checksum.hexdigest
-    image_ref = GitHubPackages.version_rebuild(@resource.version, rebuild, @tag.to_s)
-    manifest_annotations = manifests_annotations.find do |m|
-      next if m["sh.brew.bottle.digest"] != bottle_digest
-
-      m["org.opencontainers.image.ref.name"] == image_ref
-    end
-    raise ArgumentError, "Couldn't find manifest matching bottle checksum." if manifest_annotations.blank?
-
-    tab = manifest_annotations["sh.brew.tab"]
-    raise ArgumentError, "Couldn't find tab from manifest." if tab.blank?
-
-    begin
-      JSON.parse(tab)
-    rescue JSON::ParserError
-      raise ArgumentError, "Couldn't parse tab JSON."
-    end
-  end
 
   def github_packages_manifest_resource
     return if @resource.download_strategy != CurlGitHubPackagesDownloadStrategy
 
     @github_packages_manifest_resource ||= begin
-      resource = Resource.new("#{name}_bottle_manifest")
+      resource = Resource::BottleManifest.new(self)
 
       version_rebuild = GitHubPackages.version_rebuild(@resource.version, rebuild)
       resource.version(version_rebuild)
@@ -626,11 +583,11 @@ class BottleSpecification
   def checksums
     tags = collector.tags.sort_by do |tag|
       version = tag.to_macos_version
-      # Give arm64 bottles a higher priority so they are first
-      priority = (tag.arch == :arm64) ? "2" : "1"
+      # Give `arm64` bottles a higher priority so they are first.
+      priority = (tag.arch == :arm64) ? 2 : 1
       "#{priority}.#{version}_#{tag}"
     rescue MacOSVersion::Error
-      # Sort non-MacOS tags below MacOS tags.
+      # Sort non-macOS tags below macOS tags.
       "0.#{tag}"
     end
     tags.reverse.map do |tag|

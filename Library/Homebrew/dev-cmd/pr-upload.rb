@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 # frozen_string_literal: true
 
 require "abstract_command"
@@ -44,9 +44,10 @@ module Homebrew
       def run
         json_files = Dir["*.bottle.json"]
         odie "No bottle JSON files found in the current working directory" if json_files.blank?
-        bottles_hash = bottles_hash_from_json_files(json_files, args)
 
         Homebrew.install_bundler_gems!(groups: ["pr_upload"])
+
+        bottles_hash = bottles_hash_from_json_files(json_files, args)
 
         unless args.upload_only?
           bottle_args = ["bottle", "--merge", "--write"]
@@ -119,6 +120,7 @@ module Homebrew
 
       private
 
+      sig { params(bottles_hash: T::Hash[String, T.untyped]).void }
       def check_bottled_formulae!(bottles_hash)
         bottles_hash.each do |name, bottle_hash|
           formula_path = HOMEBREW_REPOSITORY/bottle_hash["formula"]["path"]
@@ -130,22 +132,25 @@ module Homebrew
         end
       end
 
+      sig { params(bottles_hash: T::Hash[String, T.untyped]).returns(T::Boolean) }
       def github_releases?(bottles_hash)
-        @github_releases ||= bottles_hash.values.all? do |bottle_hash|
+        @github_releases ||= T.let(bottles_hash.values.all? do |bottle_hash|
           root_url = bottle_hash["bottle"]["root_url"]
           url_match = root_url.match GitHubReleases::URL_REGEX
           _, _, _, tag = *url_match
 
           tag
-        end
+        end, T.nilable(T::Boolean))
       end
 
+      sig { params(bottles_hash: T::Hash[String, T.untyped]).returns(T::Boolean) }
       def github_packages?(bottles_hash)
-        @github_packages ||= bottles_hash.values.all? do |bottle_hash|
+        @github_packages ||= T.let(bottles_hash.values.all? do |bottle_hash|
           bottle_hash["bottle"]["root_url"].match? GitHubPackages::URL_REGEX
-        end
+        end, T.nilable(T::Boolean))
       end
 
+      sig { params(json_files: T::Array[String], args: T.untyped).returns(T::Hash[String, T.untyped]) }
       def bottles_hash_from_json_files(json_files, args)
         puts "Reading JSON files: #{json_files.join(", ")}" if args.verbose?
 

@@ -10,21 +10,20 @@ require "cask/config"
 require "cask/download"
 require "cask/migrator"
 require "cask/quarantine"
+require "cask/tab"
 
 require "cgi"
 
 module Cask
   # Installer for a {Cask}.
-  #
-  # @api private
   class Installer
     extend Attrable
 
     def initialize(cask, command: SystemCommand, force: false, adopt: false,
                    skip_cask_deps: false, binaries: true, verbose: false,
                    zap: false, require_sha: false, upgrade: false, reinstall: false,
-                   installed_as_dependency: false, quarantine: true,
-                   verify_download_integrity: true, quiet: false)
+                   installed_as_dependency: false, installed_on_request: true,
+                   quarantine: true, verify_download_integrity: true, quiet: false)
       @cask = cask
       @command = command
       @force = force
@@ -37,13 +36,14 @@ module Cask
       @reinstall = reinstall
       @upgrade = upgrade
       @installed_as_dependency = installed_as_dependency
+      @installed_on_request = installed_on_request
       @quarantine = quarantine
       @verify_download_integrity = verify_download_integrity
       @quiet = quiet
     end
 
     attr_predicate :binaries?, :force?, :adopt?, :skip_cask_deps?, :require_sha?,
-                   :reinstall?, :upgrade?, :verbose?, :zap?, :installed_as_dependency?,
+                   :reinstall?, :upgrade?, :verbose?, :zap?, :installed_as_dependency?, :installed_on_request?,
                    :quarantine?, :quiet?
 
     def self.caveats(cask)
@@ -67,6 +67,9 @@ module Cask
       load_cask_from_source_api! if @cask.loaded_from_api? && @cask.caskfile_only?
       verify_has_sha if require_sha? && !force?
       check_requirements
+
+      forbidden_tap_check
+      forbidden_cask_and_formula_check
 
       download(quiet:, timeout:)
 
@@ -111,6 +114,11 @@ module Cask
 
       install_artifacts(predecessor:)
 
+      tab = Tab.create(@cask)
+      tab.installed_as_dependency = installed_as_dependency?
+      tab.installed_on_request = installed_on_request?
+      tab.write
+
       if (tap = @cask.tap) && tap.should_report_analytics?
         ::Utils::Analytics.report_package_event(:cask_install, package_name: @cask.token, tap_name: tap.name,
 on_request: true)
@@ -135,10 +143,9 @@ on_request: true)
 
       case deprecate_disable_type
       when :deprecated
-        puts "::warning::#{message_full}" if ENV["GITHUB_ACTIONS"]
         opoo message_full
       when :disabled
-        puts "::error::#{message_full}" if ENV["GITHUB_ACTIONS"]
+        GitHub::Actions.puts_annotation_if_env_set(:error, message)
         raise CaskCannotBeInstalledError.new(@cask, message)
       end
     end
@@ -338,7 +345,7 @@ on_request: true)
       missing_formulae_and_casks = missing_cask_and_formula_dependencies
 
       if missing_formulae_and_casks.empty?
-        puts "All formula dependencies satisfied."
+        puts "All dependencies satisfied."
         return
       end
 
@@ -356,6 +363,7 @@ on_request: true)
             binaries:                binaries?,
             verbose:                 verbose?,
             installed_as_dependency: true,
+            installed_on_request:    false,
             force:                   false,
           ).install
         else
@@ -408,11 +416,18 @@ on_request: true)
       oh1 "Uninstalling Cask #{Formatter.identifier(@cask)}"
       uninstall_artifacts(clear: true, successor:)
       if !reinstall? && !upgrade?
+        remove_tabfile
         remove_download_sha
         remove_config_file
       end
       purge_versioned_files
       purge_caskroom_path if force?
+    end
+
+    def remove_tabfile
+      tabfile = @cask.tab.tabfile
+      FileUtils.rm_f tabfile if tabfile
+      @cask.config_path.parent.rmdir_if_possible
     end
 
     def remove_config_file
@@ -569,6 +584,102 @@ on_request: true)
     def purge_caskroom_path
       odebug "Purging all staged versions of Cask #{@cask}"
       gain_permissions_remove(@cask.caskroom_path)
+    end
+
+    sig { void }
+    def forbidden_tap_check
+      return if Tap.allowed_taps.blank? && Tap.forbidden_taps.blank?
+
+      owner = Homebrew::EnvConfig.forbidden_owner
+      owner_contact = if (contact = Homebrew::EnvConfig.forbidden_owner_contact.presence)
+        "\n#{contact}"
+      end
+
+      unless skip_cask_deps?
+        cask_and_formula_dependencies.each do |cask_or_formula|
+          dep_tap = cask_or_formula.tap
+          next if dep_tap.blank? || (dep_tap.allowed_by_env? && !dep_tap.forbidden_by_env?)
+
+          dep_full_name = cask_or_formula.full_name
+          error_message = +"The installation of #{@cask} has a dependency #{dep_full_name}\n" \
+                           "from the #{dep_tap} tap but #{owner} "
+          error_message << "has not allowed this tap in `HOMEBREW_ALLOWED_TAPS`" unless dep_tap.allowed_by_env?
+          error_message << " and\n" if !dep_tap.allowed_by_env? && dep_tap.forbidden_by_env?
+          error_message << "has forbidden this tap in `HOMEBREW_FORBIDDEN_TAPS`" if dep_tap.forbidden_by_env?
+          error_message << ".#{owner_contact}"
+
+          raise CaskCannotBeInstalledError.new(@cask, error_message)
+        end
+      end
+
+      cask_tap = @cask.tap
+      return if cask_tap.blank? || (cask_tap.allowed_by_env? && !cask_tap.forbidden_by_env?)
+
+      error_message = +"The installation of #{@cask.full_name} has the tap #{cask_tap}\n" \
+                       "but #{owner} "
+      error_message << "has not allowed this tap in `HOMEBREW_ALLOWED_TAPS`" unless cask_tap.allowed_by_env?
+      error_message << " and\n" if !cask_tap.allowed_by_env? && cask_tap.forbidden_by_env?
+      error_message << "has forbidden this tap in `HOMEBREW_FORBIDDEN_TAPS`" if cask_tap.forbidden_by_env?
+      error_message << ".#{owner_contact}"
+
+      raise CaskCannotBeInstalledError.new(@cask, error_message)
+    end
+
+    sig { void }
+    def forbidden_cask_and_formula_check
+      forbidden_formulae = Set.new(Homebrew::EnvConfig.forbidden_formulae.to_s.split)
+      forbidden_casks = Set.new(Homebrew::EnvConfig.forbidden_casks.to_s.split)
+      return if forbidden_formulae.blank? && forbidden_casks.blank?
+
+      owner = Homebrew::EnvConfig.forbidden_owner
+      owner_contact = if (contact = Homebrew::EnvConfig.forbidden_owner_contact.presence)
+        "\n#{contact}"
+      end
+
+      unless skip_cask_deps?
+        cask_and_formula_dependencies.each do |dep_cask_or_formula|
+          dep_name, dep_type, variable = if dep_cask_or_formula.is_a?(Cask) && forbidden_casks.present?
+            dep_cask = dep_cask_or_formula
+            dep_cask_name = if forbidden_casks.include?(dep_cask.token)
+              dep_cask.token
+            elsif dep_cask.tap.present? &&
+                  forbidden_casks.include?(dep_cask.full_name)
+              dep_cask.full_name
+            end
+            [dep_cask_name, "cask", "HOMEBREW_FORBIDDEN_CASKS"]
+          elsif dep_cask_or_formula.is_a?(Formula) && forbidden_formulae.present?
+            dep_formula = dep_cask_or_formula
+            formula_name = if forbidden_formulae.include?(dep_formula.name)
+              dep_formula.name
+            elsif dep_formula.tap.present? &&
+                  forbidden_formulae.include?(dep_formula.full_name)
+              dep_formula.full_name
+            end
+            [formula_name, "formula", "HOMEBREW_FORBIDDEN_FORMULAE"]
+          end
+          next if dep_name.blank?
+
+          raise CaskCannotBeInstalledError.new(@cask, <<~EOS
+            has a dependency #{dep_name} but the
+            #{dep_name} #{dep_type} was forbidden for installation by #{owner} in `#{variable}`.#{owner_contact}
+          EOS
+          )
+        end
+      end
+      return if forbidden_casks.blank?
+
+      if forbidden_casks.include?(@cask.token)
+        @cask.token
+      elsif forbidden_casks.include?(@cask.full_name)
+        @cask.full_name
+      else
+        return
+      end
+
+      raise CaskCannotBeInstalledError.new(@cask, <<~EOS
+        forbidden for installation by #{owner} in `HOMEBREW_FORBIDDEN_CASKS`.#{owner_contact}
+      EOS
+      )
     end
 
     private

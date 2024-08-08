@@ -31,6 +31,9 @@ module Homebrew
         switch "-d", "--debug",
                description: "If brewing fails, open an interactive debugging session with access to IRB " \
                             "or a shell inside the temporary build directory."
+        switch "--display-times",
+               env:         :display_install_times,
+               description: "Print install times for each package at the end of the run."
         switch "-f", "--force",
                description: "Install without checking for previously installed keg-only or " \
                             "non-migrated versions."
@@ -56,10 +59,6 @@ module Homebrew
           [:switch, "--debug-symbols", {
             depends_on:  "--build-from-source",
             description: "Generate debug symbols on build. Source will be retained in a cache directory.",
-          }],
-          [:switch, "--display-times", {
-            env:         :display_install_times,
-            description: "Print install times for each formula at the end of the run.",
           }],
           [:switch, "-g", "--git", {
             description: "Create a Git repository, useful for creating patches to the software.",
@@ -110,7 +109,7 @@ module Homebrew
       sig { override.void }
       def run
         formulae, casks = T.cast(
-          args.named.to_formulae_and_casks(method: :resolve).partition { _1.is_a?(Formula) },
+          args.named.to_resolved_formulae_to_casks,
           [T::Array[Formula], T::Array[Cask::Cask]],
         )
 
@@ -124,6 +123,8 @@ module Homebrew
             puts "You're on your own. Failures are expected so don't create any issues, please!"
           end
         end
+
+        formulae = Homebrew::Attestation.sort_formulae_for_install(formulae) if Homebrew::Attestation.enabled?
 
         Install.perform_preinstall_checks
 

@@ -24,6 +24,8 @@ module Homebrew
         switch "--suggest-typed",
                depends_on:  "--update",
                description: "Try upgrading `typed` sigils."
+        switch "--lsp",
+               description: "Start the Sorbet LSP server."
         flag   "--dir=",
                description: "Typecheck all files in a specific directory."
         flag   "--file=",
@@ -33,6 +35,9 @@ module Homebrew
                             "in their paths (relative to the input path passed to Sorbet)."
 
         conflicts "--dir", "--file"
+        conflicts "--lsp", "--update"
+        conflicts "--lsp", "--update-all"
+        conflicts "--lsp", "--fix"
 
         named_args :none
       end
@@ -48,7 +53,8 @@ module Homebrew
 
         HOMEBREW_LIBRARY_PATH.cd do
           if update
-            safe_system "bundle", "exec", "tapioca", "dsl"
+            workers = args.debug? ? ["--workers=1"] : []
+            safe_system "bundle", "exec", "tapioca", "dsl", *workers
             # Prefer adding args here: Library/Homebrew/sorbet/tapioca/config.yml
             tapioca_args = args.update_all? ? ["--all"] : []
 
@@ -57,10 +63,12 @@ module Homebrew
             safe_system "bundle", "exec", "parlour"
 
             if args.suggest_typed?
-              ohai "Bumping Sorbet `typed` sigils..."
+              ohai "Checking if we can bump Sorbet `typed` sigils..."
               # --sorbet needed because of https://github.com/Shopify/spoom/issues/488
-              safe_system "bundle", "exec", "spoom", "bump", "--dry", "--sorbet",
-                          "#{Gem.bin_path("sorbet", "srb")} tc"
+              system "bundle", "exec", "spoom", "srb", "bump", "--from", "false", "--to", "true",
+                     "--sorbet", "#{Gem.bin_path("sorbet", "srb")} tc"
+              system "bundle", "exec", "spoom", "srb", "bump", "--from", "true", "--to", "strict",
+                     "--sorbet", "#{Gem.bin_path("sorbet", "srb")} tc"
             end
 
             return
@@ -75,6 +83,15 @@ module Homebrew
             srb_exec << "--suppress-error-code" << "7003"
 
             srb_exec << "--autocorrect"
+          end
+
+          if args.lsp?
+            srb_exec << "--lsp"
+            if (watchman = which("watchman", ORIGINAL_PATHS))
+              srb_exec << "--watchman-path" << watchman
+            else
+              srb_exec << "--disable-watchman"
+            end
           end
 
           srb_exec += ["--ignore", args.ignore] if args.ignore.present?

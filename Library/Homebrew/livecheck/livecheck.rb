@@ -7,14 +7,11 @@ require "livecheck/livecheck_version"
 require "livecheck/skip_conditions"
 require "livecheck/strategy"
 require "addressable"
-require "uri"
 
 module Homebrew
   # The {Livecheck} module consists of methods used by the `brew livecheck`
   # command. These methods print the requested livecheck information
   # for formulae.
-  #
-  # @api private
   module Livecheck
     module_function
 
@@ -272,7 +269,7 @@ module Homebrew
         # comparison.
         current = if formula
           if formula.head_only?
-            formula.any_installed_version.version.commit
+            Version.new(formula.any_installed_version.version.commit)
           else
             T.must(formula.stable).version
           end
@@ -284,7 +281,7 @@ module Homebrew
         current = LivecheckVersion.create(formula_or_cask, current)
 
         latest = if formula&.head_only?
-          T.must(formula.head).downloader.fetch_last_commit
+          Version.new(T.must(formula.head).downloader.fetch_last_commit)
         else
           version_info = latest_version(
             formula_or_cask,
@@ -411,7 +408,10 @@ module Homebrew
           name += " (cask)" if ambiguous_casks.include?(formula_or_cask)
 
           onoe "#{Tty.blue}#{name}#{Tty.reset}: #{e}"
-          $stderr.puts Utils::Backtrace.clean(e) if debug && !e.is_a?(Livecheck::Error)
+          if debug && !e.is_a?(Livecheck::Error)
+            require "utils/backtrace"
+            $stderr.puts Utils::Backtrace.clean(e)
+          end
           print_resources_info(resource_version_info, verbose:) if check_for_resources
           nil
         end
@@ -715,7 +715,6 @@ module Homebrew
         strategies = Strategy.from_url(
           url,
           livecheck_strategy:,
-          url_provided:       livecheck_url.present?,
           regex_provided:     livecheck_regex.present?,
           block_provided:     livecheck_strategy_block.present?,
         )
@@ -764,11 +763,8 @@ module Homebrew
         # in the strategy's `#find_versions` method once we figure out why
         # `strategy.method(:find_versions).parameters` isn't working as
         # expected.
-        if strategy_name == "ExtractPlist"
-          strategy_args[:cask] = cask if cask.present?
-        else
-          strategy_args[:url] = url
-        end
+        strategy_args[:cask] = cask if strategy_name == "ExtractPlist" && cask.present?
+        strategy_args[:url] = url
         strategy_args.compact!
 
         strategy_data = strategy.find_versions(**strategy_args, &livecheck_strategy_block)
@@ -933,7 +929,6 @@ module Homebrew
         strategies = Strategy.from_url(
           url,
           livecheck_strategy:,
-          url_provided:       livecheck_url.present?,
           regex_provided:     livecheck_regex.present?,
           block_provided:     livecheck_strategy_block.present?,
         )
@@ -1061,7 +1056,10 @@ module Homebrew
           status_hash(resource, "error", [e.to_s], verbose:)
         elsif !quiet
           onoe "#{Tty.blue}#{resource.name}#{Tty.reset}: #{e}"
-          $stderr.puts Utils::Backtrace.clean(e) if debug && !e.is_a?(Livecheck::Error)
+          if debug && !e.is_a?(Livecheck::Error)
+            require "utils/backtrace"
+            $stderr.puts Utils::Backtrace.clean(e)
+          end
           nil
         end
       end

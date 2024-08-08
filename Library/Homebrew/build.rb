@@ -15,10 +15,9 @@ require "extend/ENV"
 require "fcntl"
 require "socket"
 require "cmd/install"
+require "json/add/exception"
 
 # A formula build.
-#
-# @api private
 class Build
   attr_reader :formula, :deps, :reqs, :args
 
@@ -123,7 +122,7 @@ class Build
     }
 
     with_env(new_env) do
-      if args.debug?
+      if args.debug? && !Homebrew::EnvConfig.disable_debrew?
         require "debrew"
         formula.extend(Debrew::Formula)
       end
@@ -217,6 +216,7 @@ class Build
 end
 
 begin
+  ENV.delete("HOMEBREW_FORBID_PACKAGES_FROM_PATHS")
   args = Homebrew::Cmd::InstallCmd.new.args
   Context.current = args.context
 

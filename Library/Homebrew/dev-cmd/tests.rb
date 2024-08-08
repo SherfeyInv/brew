@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 # frozen_string_literal: true
 
 require "abstract_command"
@@ -21,14 +21,14 @@ module Homebrew
         switch "--online",
                description: "Include tests that use the GitHub API and tests that use any of the taps for " \
                             "official external commands."
-        switch "--byebug",
-               description: "Enable debugging using byebug."
+        switch "--debug",
+               description: "Enable debugging using `ruby/debug`, or surface the standard `odebug` output."
         switch "--changed",
                description: "Only runs tests on files that were changed from the master branch."
         switch "--fail-fast",
                description: "Exit early on the first failing test."
         flag   "--only=",
-               description: "Run only <test_script>`_spec.rb`. Appending `:`<line_number> will start at a " \
+               description: "Run only `<test_script>_spec.rb`. Appending `:<line_number>` will start at a " \
                             "specific line."
         flag   "--profile=",
                description: "Run the test suite serially to find the <n> slowest tests."
@@ -44,8 +44,6 @@ module Homebrew
       def run
         # Given we might be testing various commands, we probably want everything (except sorbet-static)
         Homebrew.install_bundler_gems!(groups: Homebrew.valid_gem_groups - ["sorbet"])
-
-        require "byebug" if args.byebug?
 
         HOMEBREW_LIBRARY_PATH.cd do
           setup_environment!
@@ -137,12 +135,21 @@ module Homebrew
 
           puts "Randomized with seed #{seed}"
 
+          ENV["HOMEBREW_DEBUG"] = "1" if args.debug? # Used in spec_helper.rb to require the "debug" gem.
+
           # Submit test flakiness information using BuildPulse
           # BUILDPULSE used in spec_helper.rb
           if use_buildpulse?
             ENV["BUILDPULSE"] = "1"
             ohai "Running tests with BuildPulse-friendly settings"
           end
+
+          # Workaround for:
+          #
+          # ```
+          # ruby: no -r allowed while running setuid (SecurityError)
+          # ```
+          Process::UID.change_privilege(Process.euid) if Process.euid != Process.uid
 
           if parallel
             system "bundle", "exec", "parallel_rspec", *parallel_args, "--", *bundle_args, "--", *files
@@ -161,15 +168,17 @@ module Homebrew
 
       private
 
+      sig { returns(T.nilable(T::Boolean)) }
       def use_buildpulse?
         return @use_buildpulse if defined?(@use_buildpulse)
 
-        @use_buildpulse = ENV["HOMEBREW_BUILDPULSE_ACCESS_KEY_ID"].present? &&
+        @use_buildpulse = T.let(ENV["HOMEBREW_BUILDPULSE_ACCESS_KEY_ID"].present? &&
                           ENV["HOMEBREW_BUILDPULSE_SECRET_ACCESS_KEY"].present? &&
                           ENV["HOMEBREW_BUILDPULSE_ACCOUNT_ID"].present? &&
-                          ENV["HOMEBREW_BUILDPULSE_REPOSITORY_ID"].present?
+                          ENV["HOMEBREW_BUILDPULSE_REPOSITORY_ID"].present?, T.nilable(T::Boolean))
       end
 
+      sig { void }
       def run_buildpulse
         require "formula"
 
@@ -191,6 +200,7 @@ module Homebrew
                        ]
       end
 
+      sig { returns(T::Array[String]) }
       def changed_test_files
         changed_files = Utils.popen_read("git", "diff", "--name-only", "master")
 
@@ -208,6 +218,7 @@ module Homebrew
         end.select(&:exist?)
       end
 
+      sig { returns(T::Array[String]) }
       def setup_environment!
         # Cleanup any unwanted user configuration.
         allowed_test_env = %w[

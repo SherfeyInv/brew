@@ -13,7 +13,7 @@ module Homebrew
       cmd_args do
         description <<~EOS
           List installed casks and formulae that have an updated version available. By default, version
-          information is displayed in interactive shells, and suppressed otherwise.
+          information is displayed in interactive shells and suppressed otherwise.
         EOS
         switch "-q", "--quiet",
                description: "List only the names of outdated kegs (takes precedence over `--verbose`)."
@@ -32,6 +32,7 @@ module Homebrew
                             "formula is outdated. Otherwise, the repository's HEAD will only be checked for " \
                             "updates when a new stable or development version has been released."
         switch "-g", "--greedy",
+               env:         :upgrade_greedy,
                description: "Also include outdated casks with `auto_updates true` or `version :latest`."
 
         switch "--greedy-latest",

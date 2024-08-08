@@ -281,7 +281,7 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
 
     it "checks online and verifies that a standard license id is the same " \
-       "as what is indicated on its Github repo", :needs_network do
+       "as what is indicated on its GitHub repo", :needs_network do
       formula_text = <<~RUBY
         class Cask < Formula
           url "https://github.com/cask/cask/archive/v0.8.4.tar.gz"
@@ -297,7 +297,7 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
 
     it "checks online and verifies that a standard license id with AND is the same " \
-       "as what is indicated on its Github repo", :needs_network do
+       "as what is indicated on its GitHub repo", :needs_network do
       formula_text = <<~RUBY
         class Cask < Formula
           url "https://github.com/cask/cask/archive/v0.8.4.tar.gz"
@@ -313,7 +313,7 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
 
     it "checks online and verifies that a standard license id with WITH is the same " \
-       "as what is indicated on its Github repo", :needs_network do
+       "as what is indicated on its GitHub repo", :needs_network do
       formula_text = <<~RUBY
         class Cask < Formula
           url "https://github.com/cask/cask/archive/v0.8.4.tar.gz"
@@ -395,7 +395,7 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
 
     it "checks online and detects that a formula-specified license is not " \
-       "the same as what is indicated on its Github repository", :needs_network do
+       "the same as what is indicated on its GitHub repository", :needs_network do
       formula_text = <<~RUBY
         class Cask < Formula
           url "https://github.com/cask/cask/archive/v0.8.4.tar.gz"
@@ -429,7 +429,7 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
 
     it "checks online and detects that an array of license does not contain " \
-       "what is indicated on its Github repository", :needs_network do
+       "what is indicated on its GitHub repository", :needs_network do
       formula_text = <<~RUBY
         class Cask < Formula
           url "https://github.com/cask/cask/archive/v0.8.4.tar.gz"
@@ -446,7 +446,7 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
 
     it "checks online and verifies that an array of license contains " \
-       "what is indicated on its Github repository", :needs_network do
+       "what is indicated on its GitHub repository", :needs_network do
       formula_text = <<~RUBY
         class Cask < Formula
           url "https://github.com/cask/cask/archive/v0.8.4.tar.gz"
@@ -503,7 +503,7 @@ RSpec.describe Homebrew::FormulaAuditor do
   end
 
   describe "#audit_resource_name_matches_pypi_package_name_in_url" do
-    it "reports a problem if the resource name does not match the python package name" do
+    it "reports a problem if the resource name does not match the python sdist name" do
       fa = formula_auditor "foo", <<~RUBY
         class Foo < Formula
           url "https://brew.sh/foo-1.0.tgz"
@@ -512,6 +512,25 @@ RSpec.describe Homebrew::FormulaAuditor do
 
           resource "Something" do
             url "https://files.pythonhosted.org/packages/FooSomething-1.0.0.tar.gz"
+            sha256 "def456"
+          end
+        end
+      RUBY
+
+      fa.audit_specs
+      expect(fa.problems.first[:message])
+        .to match("resource name should be `FooSomething` to match the PyPI package name")
+    end
+
+    it "reports a problem if the resource name does not match the python wheel name" do
+      fa = formula_auditor "foo", <<~RUBY
+        class Foo < Formula
+          url "https://brew.sh/foo-1.0.tgz"
+          sha256 "abc123"
+          homepage "https://brew.sh"
+
+          resource "Something" do
+            url "https://files.pythonhosted.org/packages/FooSomething-1.0.0-py3-none-any.whl"
             sha256 "def456"
           end
         end
@@ -1238,7 +1257,7 @@ RSpec.describe Homebrew::FormulaAuditor do
 
   describe "#audit_conflicts" do
     before do
-      # We don't really test FormulaTextAuditor here
+      # We don't really test the formula text retrieval here
       allow(File).to receive(:open).and_return("")
     end
 

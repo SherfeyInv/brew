@@ -7,8 +7,6 @@ require "extend/hash/keys"
 module Cask
   module Artifact
     # Artifact corresponding to the `installer` stanza.
-    #
-    # @api private
     class Installer < AbstractArtifact
       VALID_KEYS = Set.new([
         :manual,
@@ -37,9 +35,10 @@ module Cask
           command.run!(
             executable_path,
             **args,
-            env: { "PATH" => PATH.new(
+            env:       { "PATH" => PATH.new(
               HOMEBREW_PREFIX/"bin", HOMEBREW_PREFIX/"sbin", ENV.fetch("PATH")
             ) },
+            reset_uid: true,
           )
         end
       end
@@ -71,7 +70,7 @@ module Cask
       attr_reader :path, :args
 
       def initialize(cask, **args)
-        super(cask, **args)
+        super
 
         if args.key?(:manual)
           @path = Pathname(args[:manual])

@@ -3,8 +3,8 @@
 
 require "url"
 require "checksum"
+require "download_strategy"
 
-# @api private
 class Downloadable
   include Context
   extend T::Helpers

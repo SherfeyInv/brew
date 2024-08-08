@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 # frozen_string_literal: true
 
 require "abstract_command"
@@ -64,15 +64,18 @@ module Homebrew
 
           homebrew_cask_tap_json = JSON.generate(tap.to_internal_api_hash)
           File.write("api/internal/v3/homebrew-cask.json", homebrew_cask_tap_json) unless args.dry_run?
+          canonical_json = JSON.pretty_generate(tap.cask_renames)
+          File.write("_data/cask_canonical.json", "#{canonical_json}\n") unless args.dry_run?
         end
       end
 
       private
 
+      sig { params(title: String).returns(String) }
       def html_template(title)
         <<~EOS
           ---
-          title: #{title}
+          title: '#{title}'
           layout: cask
           ---
           {{ content }}

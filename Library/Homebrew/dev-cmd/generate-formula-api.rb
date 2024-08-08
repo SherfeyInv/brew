@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 # frozen_string_literal: true
 
 require "abstract_command"
@@ -69,10 +69,11 @@ module Homebrew
 
       private
 
+      sig { params(title: String).returns(String) }
       def html_template(title)
         <<~EOS
           ---
-          title: #{title}
+          title: '#{title}'
           layout: formula
           redirect_from: /formula-linux/#{title}
           ---
