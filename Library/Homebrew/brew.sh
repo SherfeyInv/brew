@@ -127,6 +127,9 @@ case "$1" in
     exit 0
     ;;
 esac
+
+source "${HOMEBREW_LIBRARY}/Homebrew/help.sh"
+
 # functions that take multiple arguments or handle multiple commands.
 # doesn't need a default case as other arguments handled elsewhere.
 # shellcheck disable=SC2249
@@ -162,100 +165,16 @@ case "$@" in
     source "${HOMEBREW_LIBRARY}/Homebrew/list.sh"
     homebrew-list "$@" && exit 0
     ;;
+  # falls back to cmd/help.rb on a non-zero return
+  help | --help | -h | --usage | "-?" | "")
+    homebrew-help "$@" && exit 0
+    ;;
 esac
 
 #####
 ##### Next, define all helper functions.
 #####
-
-# These variables are set from the user environment.
-# shellcheck disable=SC2154
-ohai() {
-  # Check whether stdout is a tty.
-  if [[ -n "${HOMEBREW_COLOR}" || (-t 1 && -z "${HOMEBREW_NO_COLOR}") ]]
-  then
-    echo -e "\\033[34m==>\\033[0m \\033[1m$*\\033[0m" # blue arrow and bold text
-  else
-    echo "==> $*"
-  fi
-}
-
-opoo() {
-  # Check whether stderr is a tty.
-  if [[ -n "${HOMEBREW_COLOR}" || (-t 2 && -z "${HOMEBREW_NO_COLOR}") ]]
-  then
-    echo -ne "\\033[4;33mWarning\\033[0m: " >&2 # highlight Warning with underline and yellow color
-  else
-    echo -n "Warning: " >&2
-  fi
-  if [[ $# -eq 0 ]]
-  then
-    cat >&2
-  else
-    echo "$*" >&2
-  fi
-}
-
-bold() {
-  # Check whether stderr is a tty.
-  if [[ -n "${HOMEBREW_COLOR}" || (-t 2 && -z "${HOMEBREW_NO_COLOR}") ]]
-  then
-    echo -e "\\033[1m""$*""\\033[0m"
-  else
-    echo "$*"
-  fi
-}
-
-onoe() {
-  # Check whether stderr is a tty.
-  if [[ -n "${HOMEBREW_COLOR}" || (-t 2 && -z "${HOMEBREW_NO_COLOR}") ]]
-  then
-    echo -ne "\\033[4;31mError\\033[0m: " >&2 # highlight Error with underline and red color
-  else
-    echo -n "Error: " >&2
-  fi
-  if [[ $# -eq 0 ]]
-  then
-    cat >&2
-  else
-    echo "$*" >&2
-  fi
-}
-
-odie() {
-  onoe "$@"
-  exit 1
-}
-
-safe_cd() {
-  cd "$@" >/dev/null || odie "Failed to cd to $*!"
-}
-
-brew() {
-  # This variable is set by bin/brew
-  # shellcheck disable=SC2154
-  "${HOMEBREW_BREW_FILE}" "$@"
-}
-
-curl() {
-  "${HOMEBREW_LIBRARY}/Homebrew/shims/shared/curl" "$@"
-}
-
-git() {
-  "${HOMEBREW_LIBRARY}/Homebrew/shims/shared/git" "$@"
-}
-
-# Search given executable in PATH (remove dependency for `which` command)
-which() {
-  # Alias to Bash built-in command `type -P`
-  type -P "$@"
-}
-
-numeric() {
-  # Condense the exploded argument into a single return value.
-  # shellcheck disable=SC2086,SC2183
-  printf "%01d%02d%02d%03d" ${1//[.rc]/ } 2>/dev/null
-}
+source "${HOMEBREW_LIBRARY}/Homebrew/utils/helpers.sh"
 
 check-run-command-as-root() {
   [[ "${EUID}" == 0 || "${UID}" == 0 ]] || return
@@ -375,7 +294,7 @@ auto-update() {
     for repo_fetch_head in "${repo_fetch_heads[@]}"
     do
       if [[ ! -f "${repo_fetch_head}" ]] ||
-         [[ -z "$(find "${repo_fetch_head}" -type f -mtime -"${HOMEBREW_AUTO_UPDATE_SECS}"s 2>/dev/null)" ]]
+         [[ -z "$(find "${repo_fetch_head}" -type f -newermt "-${HOMEBREW_AUTO_UPDATE_SECS} seconds" 2>/dev/null)" ]]
       then
         needs_auto_update=1
         break
@@ -390,9 +309,6 @@ auto-update() {
 
     unset HOMEBREW_AUTO_UPDATING
     unset HOMEBREW_AUTO_UPDATE_TAP
-
-    # Restore user path as it'll be refiltered by HOMEBREW_BREW_FILE (bin/brew)
-    export PATH=${HOMEBREW_PATH}
 
     # exec a new process to set any new environment variables.
     exec "${HOMEBREW_BREW_FILE}" "$@"
@@ -774,6 +690,7 @@ HOMEBREW_USER_AGENT_CURL="${HOMEBREW_USER_AGENT} ${curl_name_and_version// //}"
 HOMEBREW_CURL_SPEED_LIMIT=100
 HOMEBREW_CURL_SPEED_TIME=5
 
+export HOMEBREW_HELP_MESSAGE
 export HOMEBREW_VERSION
 export HOMEBREW_MACOS_ARM_DEFAULT_PREFIX
 export HOMEBREW_LINUX_DEFAULT_PREFIX
@@ -969,6 +886,7 @@ fi
 export HOMEBREW_CORE_GIT_REMOTE
 
 # Set HOMEBREW_DEVELOPER_COMMAND if the command being run is a developer command
+unset HOMEBREW_DEVELOPER_COMMAND
 if [[ -f "${HOMEBREW_LIBRARY}/Homebrew/dev-cmd/${HOMEBREW_COMMAND}.sh" ]] ||
    [[ -f "${HOMEBREW_LIBRARY}/Homebrew/dev-cmd/${HOMEBREW_COMMAND}.rb" ]]
 then

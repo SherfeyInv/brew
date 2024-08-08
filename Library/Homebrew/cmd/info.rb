@@ -249,7 +249,7 @@ module Homebrew
           formula.path.relative_path_from(T.must(formula.tap).path)
         when Cask::Cask
           cask = formula_or_cask
-          if cask.sourcefile_path.blank?
+          if cask.sourcefile_path.blank? || cask.sourcefile_path.extname != ".rb"
             return "#{cask.tap.default_remote}/blob/HEAD/#{cask.tap.relative_cask_path(cask.token)}"
           end
 
@@ -279,7 +279,10 @@ module Homebrew
         puts Formatter.url(formula.homepage) if formula.homepage
 
         deprecate_disable_info_string = DeprecateDisable.message(formula)
-        puts deprecate_disable_info_string.capitalize if deprecate_disable_info_string.present?
+        if deprecate_disable_info_string.present?
+          deprecate_disable_info_string.tap { |info_string| info_string[0] = info_string[0].upcase }
+          puts deprecate_disable_info_string
+        end
 
         conflicts = formula.conflicts.map do |conflict|
           reason = " (because #{conflict.reason})" if conflict.reason

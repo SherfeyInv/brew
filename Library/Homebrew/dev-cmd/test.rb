@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 # frozen_string_literal: true
 
 require "abstract_command"
@@ -35,6 +35,7 @@ module Homebrew
 
         require "formula_assertions"
         require "formula_free_port"
+        require "utils/fork"
 
         args.named.to_resolved_formulae.each do |f|
           # Cannot test uninstalled formulae
@@ -100,6 +101,8 @@ module Homebrew
             end
           rescue Exception => e # rubocop:disable Lint/RescueException
             retry if retry_test?(f)
+
+            require "utils/backtrace"
             ofail "#{f.full_name}: failed"
             $stderr.puts e, Utils::Backtrace.clean(e)
           ensure
@@ -110,8 +113,9 @@ module Homebrew
 
       private
 
+      sig { params(formula: Formula).returns(T::Boolean) }
       def retry_test?(formula)
-        @test_failed ||= Set.new
+        @test_failed ||= T.let(Set.new, T.nilable(T::Set[T.untyped]))
         if args.retry? && @test_failed.add?(formula)
           oh1 "Testing #{formula.full_name} (again)"
           formula.clear_cache

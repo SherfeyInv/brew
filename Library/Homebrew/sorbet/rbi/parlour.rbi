@@ -279,6 +279,9 @@ class SystemCommand
 
   sig { returns(T::Boolean) }
   def must_succeed?; end
+
+  sig { returns(T::Boolean) }
+  def reset_uid?; end
 end
 
 module Utils
@@ -345,6 +348,9 @@ module Cask
     def installed_as_dependency?; end
 
     sig { returns(T::Boolean) }
+    def installed_on_request?; end
+
+    sig { returns(T::Boolean) }
     def quarantine?; end
 
     sig { returns(T::Boolean) }
@@ -358,9 +364,6 @@ module Cask
     end
 
     sig { returns(T::Boolean) }
-    def on_system_blocks_exist?; end
-
-    sig { returns(T::Boolean) }
     def deprecated?; end
 
     sig { returns(T::Boolean) }
@@ -368,6 +371,12 @@ module Cask
 
     sig { returns(T::Boolean) }
     def livecheckable?; end
+
+    sig { returns(T::Boolean) }
+    def on_system_blocks_exist?; end
+
+    sig { returns(T::Boolean) }
+    def depends_on_set_in_block?; end
   end
 end
 

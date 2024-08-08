@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 # frozen_string_literal: true
 
 require "abstract_command"
@@ -84,7 +84,7 @@ module Homebrew
             test-bot:
               strategy:
                 matrix:
-                  os: [ubuntu-22.04, macos-13]
+                  os: [ubuntu-22.04, macos-13, macos-14]
               runs-on: ${{ matrix.os }}
               steps:
                 - name: Set up Homebrew
@@ -95,8 +95,8 @@ module Homebrew
                   uses: actions/cache@v4
                   with:
                     path: ${{ steps.set-up-homebrew.outputs.gems-path }}
-                    key: ${{ runner.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
-                    restore-keys: ${{ runner.os }}-rubygems-
+                    key: ${{ matrix.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
+                    restore-keys: ${{ matrix.os }}-rubygems-
 
                 - run: brew test-bot --only-cleanup-before
 
@@ -197,6 +197,7 @@ module Homebrew
 
       private
 
+      sig { params(tap: Tap, filename: T.any(String, Pathname), content: String).void }
       def write_path(tap, filename, content)
         path = tap.path/filename
         tap.path.mkpath

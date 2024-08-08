@@ -62,7 +62,7 @@ module Superenv
 
     self["HOMEBREW_ENV"] = "super"
     self["MAKEFLAGS"] ||= "-j#{determine_make_jobs}"
-    self["RUSTFLAGS"] = Hardware.rustflags_target_cpu
+    self["RUSTFLAGS"] = Hardware.rustflags_target_cpu(effective_arch)
     self["PATH"] = determine_path
     self["PKG_CONFIG_PATH"] = determine_pkg_config_path
     self["PKG_CONFIG_LIBDIR"] = determine_pkg_config_libdir
@@ -104,11 +104,13 @@ module Superenv
     # K - Don't strip -arch <arch>, -m32, or -m64
     # d - Don't strip -march=<target>. Use only in formulae that
     #     have runtime detection of CPU features.
-    # w - Pass -no_weak_imports to the linker
     # D - Generate debugging information
+    # w - Pass `-no_weak_imports` to the linker
     # f - Pass `-no_fixup_chains` to `ld` whenever it
     #     is invoked with `-undefined dynamic_lookup`
     # o - Pass `-oso_prefix` to `ld` whenever it is invoked
+    # c - Pass `-ld_classic` to `ld` whenever it is invoked
+    #     with `-dead_strip_dylibs`
     #
     # These flags will also be present:
     # a - apply fix for apr-1-config path

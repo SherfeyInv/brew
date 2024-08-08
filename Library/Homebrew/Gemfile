@@ -23,9 +23,6 @@ end
 group :ast, optional: true do
   gem "rubocop-ast", require: false
 end
-group :bootsnap, optional: true do
-  gem "bootsnap", require: false
-end
 group :formula_test, optional: true do
   gem "minitest", require: false
 end
@@ -47,33 +44,35 @@ group :pry, optional: true do
   gem "pry", require: false
 end
 group :style, optional: true do
-  gem "rubocop", ">= 1.65.0", require: false
-  gem "rubocop-md", require: false
-  gem "rubocop-performance", ">= 1.21.1", require: false
-  gem "rubocop-rspec", ">= 2.31.0", require: false
-  gem "rubocop-sorbet", ">= 0.8.4", require: false
+  gem "rubocop", ">= 1.65.0", require: true
+  gem "rubocop-md", require: true
+  gem "rubocop-performance", ">= 1.21.1", require: true
+  gem "rubocop-rspec", ">= 2.31.0", require: true
+  gem "rubocop-sorbet", ">= 0.8.4", require: true
 end
 group :tests, optional: true do
-  gem "parallel_tests", require: false
-  gem "rspec", require: false
-  gem "rspec-github", require: false
-  gem "rspec_junit_formatter", require: false
-  gem "rspec-retry", require: false
-  gem "rspec-sorbet", require: false
-  gem "simplecov", require: false
-  gem "simplecov-cobertura", require: false
+  gem "parallel_tests", require: true
+  gem "rspec", require: true
+  gem "rspec-github", require: true
+  gem "rspec_junit_formatter", require: true
+  gem "rspec-retry", require: true
+  gem "rspec-sorbet", require: true
+  gem "simplecov", require: true
+  gem "simplecov-cobertura", require: true
 end
 group :typecheck, optional: true do
-  gem "method_source", require: false
-  gem "parlour", require: false
-  gem "sorbet-static-and-runtime", require: false
-  gem "spoom", require: false
-  gem "tapioca", require: false
+  gem "method_source", require: true
+  gem "parlour", require: true
+  gem "sorbet-static-and-runtime", require: true
+  gem "spoom", require: true
+  gem "tapioca", require: true
+end
+group :vscode, optional: true do
+  gem "ruby-lsp", require: true
 end
 
 # shared gems (used by multiple groups)
 group :audit, :bump_unversioned_casks, :livecheck, optional: true do
-  gem "rexml", ">= 3.3.2", require: false
 end
 
 # vendored gems (no group)

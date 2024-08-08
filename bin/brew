@@ -36,6 +36,12 @@ then
   exit 1
 fi
 
+# Reset sudo timestamp to avoid running unauthorized sudo commands
+if command -v sudo >/dev/null
+then
+  sudo --reset-timestamp 2>/dev/null || true
+fi
+
 quiet_cd() {
   CDPATH='' cd -- "$@" &>/dev/null || return
 }
@@ -56,6 +62,12 @@ do
   builtin enable "${cmd}"
 done
 unset cmd
+
+# Take the HOMEBREW_PATH if we are running brew within brew, otherwise we would lose the original path.
+if [[ -n "${HOMEBREW_BREW_FILE:-}" && -n "${HOMEBREW_PATH:-}" ]]
+then
+  PATH="${HOMEBREW_PATH}"
+fi
 
 BREW_FILE_DIRECTORY="$(quiet_cd "${0%/*}/" && pwd -P)"
 HOMEBREW_BREW_FILE="${BREW_FILE_DIRECTORY%/}/${0##*/}"
@@ -173,7 +185,9 @@ USED_BY_HOMEBREW_VARS=(
   SUDO_USER
   TMUX
   XDG_CACHE_HOME
+  XDG_DATA_DIRS
   XDG_RUNTIME_DIR
+  ZDOTDIR
 )
 for VAR in "${USED_BY_HOMEBREW_VARS[@]}"
 do

@@ -107,7 +107,7 @@ module Homebrew
 
         version = if HOMEBREW_BOTTLES_EXTNAME_REGEX.match?(to_s)
           begin
-            Utils::Bottles.resolve_version(pathname)
+            Utils::Bottles.resolve_version(pathname).to_s
           rescue
             nil
           end
@@ -411,7 +411,7 @@ module Homebrew
       (downloads - referenced_downloads).each do |download|
         if self.class.incomplete?(download)
           begin
-            LockFile.new(download.basename).with_lock do
+            DownloadLock.new(download).with_lock do
               download.unlink
             end
           rescue OperationInProgressError

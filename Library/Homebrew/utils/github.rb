@@ -695,7 +695,7 @@ module GitHub
     old_contents = info[:old_contents]
     additional_files = info[:additional_files] || []
     remote = info[:remote] || "origin"
-    remote_branch = info[:remote_branch] || tap.git_repo.origin_branch_name
+    remote_branch = info[:remote_branch] || tap.git_repository.origin_branch_name
     branch = info[:branch_name]
     commit_message = info[:commit_message]
     previous_branch = info[:previous_branch] || "-"
@@ -703,6 +703,7 @@ module GitHub
     pr_message = info[:pr_message]
 
     sourcefile_path.parent.cd do
+      require "utils/popen"
       git_dir = Utils.popen_read("git", "rev-parse", "--git-dir").chomp
       shallow = !git_dir.empty? && File.exist?("#{git_dir}/shallow")
       changed_files = [sourcefile_path]
@@ -812,6 +813,7 @@ module GitHub
   def self.last_commit(user, repo, ref, version)
     return if Homebrew::EnvConfig.no_github_api?
 
+    require "utils/curl"
     output, _, status = Utils::Curl.curl_output(
       "--silent", "--head", "--location",
       "--header", "Accept: application/vnd.github.sha",
@@ -830,6 +832,7 @@ module GitHub
   def self.multiple_short_commits_exist?(user, repo, commit)
     return false if Homebrew::EnvConfig.no_github_api?
 
+    require "utils/curl"
     output, _, status = Utils::Curl.curl_output(
       "--silent", "--head", "--location",
       "--header", "Accept: application/vnd.github.sha",

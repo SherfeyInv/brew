@@ -10,6 +10,7 @@ require "cask/config"
 require "cask/download"
 require "cask/migrator"
 require "cask/quarantine"
+require "cask/tab"
 
 require "cgi"
 
@@ -21,8 +22,8 @@ module Cask
     def initialize(cask, command: SystemCommand, force: false, adopt: false,
                    skip_cask_deps: false, binaries: true, verbose: false,
                    zap: false, require_sha: false, upgrade: false, reinstall: false,
-                   installed_as_dependency: false, quarantine: true,
-                   verify_download_integrity: true, quiet: false)
+                   installed_as_dependency: false, installed_on_request: true,
+                   quarantine: true, verify_download_integrity: true, quiet: false)
       @cask = cask
       @command = command
       @force = force
@@ -35,13 +36,14 @@ module Cask
       @reinstall = reinstall
       @upgrade = upgrade
       @installed_as_dependency = installed_as_dependency
+      @installed_on_request = installed_on_request
       @quarantine = quarantine
       @verify_download_integrity = verify_download_integrity
       @quiet = quiet
     end
 
     attr_predicate :binaries?, :force?, :adopt?, :skip_cask_deps?, :require_sha?,
-                   :reinstall?, :upgrade?, :verbose?, :zap?, :installed_as_dependency?,
+                   :reinstall?, :upgrade?, :verbose?, :zap?, :installed_as_dependency?, :installed_on_request?,
                    :quarantine?, :quiet?
 
     def self.caveats(cask)
@@ -66,12 +68,12 @@ module Cask
       verify_has_sha if require_sha? && !force?
       check_requirements
 
+      forbidden_tap_check
+      forbidden_cask_and_formula_check
+
       download(quiet:, timeout:)
 
       satisfy_cask_and_formula_dependencies
-
-      forbidden_tap_check
-      forbidden_cask_and_formula_check
     end
 
     def stage
@@ -111,6 +113,11 @@ module Cask
       @cask.config = @cask.default_config.merge(old_config)
 
       install_artifacts(predecessor:)
+
+      tab = Tab.create(@cask)
+      tab.installed_as_dependency = installed_as_dependency?
+      tab.installed_on_request = installed_on_request?
+      tab.write
 
       if (tap = @cask.tap) && tap.should_report_analytics?
         ::Utils::Analytics.report_package_event(:cask_install, package_name: @cask.token, tap_name: tap.name,
@@ -356,6 +363,7 @@ on_request: true)
             binaries:                binaries?,
             verbose:                 verbose?,
             installed_as_dependency: true,
+            installed_on_request:    false,
             force:                   false,
           ).install
         else
@@ -408,11 +416,18 @@ on_request: true)
       oh1 "Uninstalling Cask #{Formatter.identifier(@cask)}"
       uninstall_artifacts(clear: true, successor:)
       if !reinstall? && !upgrade?
+        remove_tabfile
         remove_download_sha
         remove_config_file
       end
       purge_versioned_files
       purge_caskroom_path if force?
+    end
+
+    def remove_tabfile
+      tabfile = @cask.tab.tabfile
+      FileUtils.rm_f tabfile if tabfile
+      @cask.config_path.parent.rmdir_if_possible
     end
 
     def remove_config_file
@@ -645,15 +660,15 @@ on_request: true)
           next if dep_name.blank?
 
           raise CaskCannotBeInstalledError.new(@cask, <<~EOS
-            The installation of #{@cask} has a dependency #{dep_name}
-            but the #{dep_name} #{dep_type} was forbidden by #{owner} in `#{variable}`.#{owner_contact}
+            has a dependency #{dep_name} but the
+            #{dep_name} #{dep_type} was forbidden for installation by #{owner} in `#{variable}`.#{owner_contact}
           EOS
           )
         end
       end
       return if forbidden_casks.blank?
 
-      cask_name = if forbidden_casks.include?(@cask.token)
+      if forbidden_casks.include?(@cask.token)
         @cask.token
       elsif forbidden_casks.include?(@cask.full_name)
         @cask.full_name
@@ -662,8 +677,7 @@ on_request: true)
       end
 
       raise CaskCannotBeInstalledError.new(@cask, <<~EOS
-        The installation of #{cask_name} was forbidden by #{owner}
-        in `HOMEBREW_FORBIDDEN_CASKS`.#{owner_contact}
+        forbidden for installation by #{owner} in `HOMEBREW_FORBIDDEN_CASKS`.#{owner_contact}
       EOS
       )
     end

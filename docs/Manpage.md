@@ -1141,12 +1141,14 @@ Perform a substring search of cask tokens and formula names for *`text`*. If
 
 : Search for *`text`* in the given database.
 
-### `setup-ruby [command]`
+### `setup-ruby` \[*`command`* ...\]
 
 Installs and configures Homebrew's Ruby. If `command` is passed, it will only
 run Bundler if necessary for that command.
 
-### `shellenv [bash|csh|fish|pwsh|sh|tcsh|zsh]`
+### `shellenv` \[*`shell`* ...\]
+
+Valid shells: bash\|csh\|fish\|pwsh\|sh\|tcsh\|zsh
 
 Print export statements. When run in a shell, this installation of Homebrew will
 be added to your `PATH`, `MANPATH`, and `INFOPATH`.
@@ -1161,6 +1163,31 @@ evaluation of this command's output to your dotfiles (e.g. `~/.bash_profile` or
 
 The shell can be specified explicitly with a supported shell name parameter.
 Unknown shells will output POSIX exports.
+
+### `tab` \[*`options`*\] *`installed_formula`*\|*`installed_cask`* \[...\]
+
+Edit tab information for installed formulae or casks.
+
+This can be useful when you want to control whether an installed formula should
+be removed by `brew autoremove`. To prevent removal, mark the formula as
+installed on request; to allow removal, mark the formula as not installed on
+request.
+
+`--installed-on-request`
+
+: Mark *`installed_formula`* or *`installed_cask`* as installed on request.
+
+`--no-installed-on-request`
+
+: Mark *`installed_formula`* or *`installed_cask`* as not installed on request.
+
+`--formula`
+
+: Only mark formulae.
+
+`--cask`
+
+: Only mark casks.
 
 ### `tap` \[*`options`*\] \[*`user`*`/`*`repo`*\] \[*`URL`*\]
 
@@ -1259,7 +1286,7 @@ Remove a tapped formula repository.
 
 : Untap even if formulae or casks from this tap are currently installed.
 
-### `update` \[*`options`*\]
+### `update`, `up` \[*`options`*\]
 
 Fetch the newest version of Homebrew and all formulae from GitHub using `git`(1)
 and perform any necessary migrations.
@@ -1276,7 +1303,15 @@ and perform any necessary migrations.
 
 : Always do a slower, full update check (even if unnecessary).
 
-### `update-reset` \[*`path-to-tap-repository`* ...\]
+`-v`, `--verbose`
+
+: Print the directories checked and `git` operations performed.
+
+`-d`, `--debug`
+
+: Display a trace of all shell commands as they are executed.
+
+### `update-reset` \[*`repository`* ...\]
 
 Fetch and reset Homebrew and all tap repositories (or any specified
 *`repository`*) using `git`(1) to their latest `origin/HEAD`.
@@ -1719,9 +1754,9 @@ at its original value, while `--no-rebuild` will remove it.
 
 ### `bump` \[*`options`*\] \[*`formula`*\|*`cask`* ...\]
 
-Display out-of-date brew formulae and the latest version available. If the
-returned current and livecheck versions differ or when querying specific
-formulae, also displays whether a pull request has been opened with the URL.
+Displays out-of-date packages and the latest version available. If the returned
+current and livecheck versions differ or when querying specific packages, also
+displays whether a pull request has been opened with the URL.
 
 `--full-name`
 
@@ -1739,6 +1774,14 @@ formulae, also displays whether a pull request has been opened with the URL.
 
 : Check only casks.
 
+`--eval-all`
+
+: Evaluate all formulae and casks.
+
+`--repology`
+
+: Use Repology to check for outdated packages.
+
 `--tap`
 
 : Check formulae and casks within the given tap, specified as
@@ -1755,10 +1798,6 @@ formulae, also displays whether a pull request has been opened with the URL.
 `--open-pr`
 
 : Open a pull request for the new version if none have been opened yet.
-
-`--limit`
-
-: Limit number of package results returned.
 
 `--start-with`
 
@@ -2162,7 +2201,7 @@ provided.
 
 : Print the file path to be edited, without opening an editor.
 
-### `extract` \[`--version=`\] \[`--force`\] *`formula`* *`tap`*
+### `extract` \[`--version=`\] \[`--git-revision=`\] \[`--force`\] *`formula`* *`tap`*
 
 Look through repository history to find the most recent version of *`formula`*
 and create a copy in *`tap`*. Specifically, the command will create the new
@@ -2170,6 +2209,11 @@ formula file at *`tap`*`/Formula/`*`formula`*`@`*`version`*`.rb`. If the tap is
 not installed yet, attempt to install/clone the tap before continuing. To
 extract a formula from a tap that is not `homebrew/core` use its fully-qualified
 form of *`user`*`/`*`repo`*`/`*`formula`*.
+
+`--git-revision`
+
+: Search for the specified *`version`* of *`formula`* starting at *`revision`*
+  instead of HEAD.
 
 `--version`
 
@@ -2731,6 +2775,10 @@ Check for typechecking errors using Sorbet.
 
 : Try upgrading `typed` sigils.
 
+`--lsp`
+
+: Start the Sorbet LSP server.
+
 `--dir`
 
 : Typecheck all files in a specific directory.
@@ -3017,6 +3065,9 @@ a local machine).
 
 This workflow is useful for maintainers or testers who regularly install lots of
 formulae.
+
+Unless `--force` is passed, this returns a 1 exit code if anything would be
+removed.
 
 `brew bundle check`
 
@@ -3546,8 +3597,8 @@ command execution e.g. `$(cat file)`.
 
 `HOMEBREW_BOOTSNAP`
 
-: If set, use Bootsnap to speed up repeated `brew` calls. A no-op when using
-  Homebrew's vendored, relocatable Ruby on macOS (as it doesn't work).
+: If set, use Bootsnap to speed up repeated `brew` calls. A no-op on Linux when
+  not using Homebrew's vendored, relocatable Ruby.
 
 `HOMEBREW_BOTTLE_DOMAIN`
 
@@ -3647,6 +3698,11 @@ command execution e.g. `$(cat file)`.
 : If set, tweak behaviour to be more relevant for Homebrew developers (active or
   budding) by e.g. turning warnings into errors.
 
+`HOMEBREW_DISABLE_DEBREW`
+
+: If set, the interactive formula debugger available via `--debug` will be
+  disabled.
+
 `HOMEBREW_DISABLE_LOAD_FORMULA`
 
 : If set, refuse to load formulae. This is useful when formulae are not trusted
@@ -3726,6 +3782,11 @@ command execution e.g. `$(cat file)`.
 
 : A space-separated list of taps. Homebrew will refuse to install a formula if
   it or any of its dependencies is in a tap on this list.
+
+`HOMEBREW_FORBID_PACKAGES_FROM_PATHS`
+
+: If set, Homebrew will refuse to read formulae or casks provided from file
+  paths, e.g. `brew install ./package.rb`.
 
 `HOMEBREW_FORCE_BREWED_CA_CERTIFICATES`
 
@@ -3817,6 +3878,11 @@ command execution e.g. `$(cat file)`.
   *Default:* `$XDG_CONFIG_HOME/homebrew/livecheck_watchlist.txt` if
   `$XDG_CONFIG_HOME` is set or `$HOME/.homebrew/livecheck_watchlist.txt`
   otherwise.
+
+`HOMEBREW_LOCK_CONTEXT`
+
+: If set, Homebrew will add this output as additional context for locking
+  errors. This is useful when running `brew` in the background.
 
 `HOMEBREW_LOGS`
 
@@ -3918,6 +3984,11 @@ command execution e.g. `$(cat file)`.
 `HOMEBREW_NO_UPDATE_REPORT_NEW`
 
 : If set, `brew update` will not show the list of newly added formulae/casks.
+
+`HOMEBREW_NO_VERIFY_ATTESTATIONS`
+
+: If set, Homebrew not verify cryptographic attestations of build provenance for
+  bottles from homebrew-core.
 
 `HOMEBREW_PIP_INDEX_URL`
 
@@ -4067,11 +4138,11 @@ Homebrew's Technical Steering Committee is Bo Anderson, FX Coudert, Michka
 Popoff, Mike McQuaid and Rylan Polster.
 
 Homebrew's maintainers are Alexander Bayandin, Bevan Kay, Bo Anderson, Branch
-Vincent, Caleb Xu, Carlo Cabrera, David Baumgold, Douglas Eichelberger, Dustin
-Rodrigues, Eric Knibbe, FX Coudert, Issy Long, Justin Krehel, Markus Reiter,
-Miccal Matthews, Michael Cho, Michka Popoff, Mike McQuaid, Nanda H Krishna,
-Patrick Linnane, Razvan Azamfirei, Rui Chen, Ruoyu Zhong, Rylan Polster, Sam
-Ford, Sean Molenaar, Thierry Moisan, Timothy Sutton and William Woodruff.
+Vincent, Caleb Xu, Carlo Cabrera, Douglas Eichelberger, Dustin Rodrigues, Eric
+Knibbe, FX Coudert, Issy Long, Justin Krehel, Klaus Hipp, Markus Reiter, Miccal
+Matthews, Michael Cho, Michka Popoff, Mike McQuaid, Nanda H Krishna, Patrick
+Linnane, Rui Chen, Ruoyu Zhong, Rylan Polster, Sam Ford, Sean Molenaar, Thierry
+Moisan, Timothy Sutton, William Woodruff and Štefan Baebler.
 
 Former maintainers with significant contributions include Misty De Méo, Shaun
 Jackman, Vítor Galvão, Claudia Pellegrino, Seeker, Jan Viljanen, JCount,
