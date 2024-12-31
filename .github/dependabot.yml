@@ -1,52 +1,40 @@
 version: 2
-
 updates:
-  - package-ecosystem: github-actions
-    directory: /
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
-      interval: daily
-    allow:
-      - dependency-type: all
-    # The actions in triage-issues.yml are updated in the Homebrew/.github repo
-    ignore:
-      - dependency-name: actions/stale
-      - dependency-name: dessant/lock-threads
+      interval: "weekly"
+      day: "sunday"
+      time: "16:00"
     groups:
-      artifacts:
+      all:
         patterns:
-          - actions/*-artifact
-
-  - package-ecosystem: bundler
-    directory: /Library/Homebrew
+          - "*"
+  - package-ecosystem: "gomod"
+    directory: "/" # Location of package manifests
     schedule:
-      interval: daily
+      interval: "weekly"
+      day: "sunday"
+      time: "16:00"
     allow:
-      - dependency-type: all
-
-  - package-ecosystem: npm
-    directory: /
+      # Allow both direct and indirect updates for all packages
+      - dependency-type: "all"
+    groups:
+      docker:
+         patterns:
+            - "github.com/docker/*"
+            - "github.com/moby/*"
+      all:
+        patterns:
+          - "*"
+  - package-ecosystem: "devcontainers"
+    directory: "/"
     schedule:
-      interval: daily
-    allow:
-      - dependency-type: all
-
-  - package-ecosystem: docker
-    directory: /
-    schedule:
-      interval: daily
-    allow:
-      - dependency-type: all
-
-  - package-ecosystem: devcontainers
-    directory: /
-    schedule:
-      interval: daily
-    allow:
-      - dependency-type: all
-
-  - package-ecosystem: pip
-    directory: /
-    schedule:
-      interval: daily
-    allow:
-      - dependency-type: all
+      interval: "weekly"
+      day: "sunday"
+      time: "16:00"
+    groups:
+      all:
+        patterns:
+          - "*"
+  
