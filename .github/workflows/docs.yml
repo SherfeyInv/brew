@@ -55,7 +55,7 @@ jobs:
         run: vale docs/
 
       - name: Install Ruby
-        uses: ruby/setup-ruby@a2bbe5b1b236842c1cb7dd11e8e3b51e0a616acc # v1.202.0
+        uses: ruby/setup-ruby@28d088d34a0b0b7ba0823b7952c77004560a3a6f # v1.220.0
         with:
           bundler-cache: true
           working-directory: docs
