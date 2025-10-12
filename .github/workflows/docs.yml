@@ -34,7 +34,7 @@ jobs:
           test-bot: false
 
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v4
         with:
           persist-credentials: false
 
@@ -55,7 +55,7 @@ jobs:
         run: vale docs/
 
       - name: Install Ruby
-        uses: ruby/setup-ruby@a2bbe5b1b236842c1cb7dd11e8e3b51e0a616acc # v1.202.0
+        uses: ruby/setup-ruby@ab177d40ee5483edb974554986f56b33477e21d0 # v1.265.0
         with:
           bundler-cache: true
           working-directory: docs
